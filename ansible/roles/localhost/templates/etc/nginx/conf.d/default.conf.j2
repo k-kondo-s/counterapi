@@ -1,0 +1,19 @@
+upstream backend {
+  {% for n in backends.split(',') %}
+  server scripts_app_{{ n }}:8080;
+  {%  endfor %}
+}
+
+server {
+  listen       80;
+  server_name  localhost;
+
+  location / {
+    proxy_pass http://backend$request_uri;
+  }
+
+  error_page   500 502 503 504  /50x.html;
+  location = /50x.html {
+    root   /usr/share/nginx/html;
+  }
+}

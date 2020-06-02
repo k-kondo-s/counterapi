@@ -1,0 +1,20 @@
+version: '3'
+services:
+  rp:
+    image: "nginx:1.19.0-alpine"
+    ports:
+      - "80:80"
+    volumes:
+      - vol:/etc/nginx/conf.d/
+    depends_on:
+      - app
+  app:
+    image: "counterapi"
+    environment:
+      - "COUNTERAPI_REDIS_ADDRESS=scripts_db_1:6379"
+      - "COUNTERAPI_REDIS_DB=0"
+      - "COUNTERAPI_PORT=8080"
+  db:
+    image: "redis:6.0.4-alpine"
+volumes:
+  vol:
