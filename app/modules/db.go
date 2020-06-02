@@ -11,11 +11,14 @@ type Dao interface {
 	Get(key string) (string, error)
 	GetAllKeys() ([]string, error)
 	Del(key string) error
+	Exists(key string) (int64, error)
 }
 
 type RedisClient struct {
-	client  *redis.Client
-	context context.Context
+	client                             *redis.Client
+	context                            context.Context
+	redisConnectionRetryIntervalSecond int
+	redisConnectionRetryNum            int
 }
 
 func NewRedisClient(address string, db int) (*RedisClient, error) {
@@ -25,7 +28,24 @@ func NewRedisClient(address string, db int) (*RedisClient, error) {
 		DB: db,
 	})
 	r.context = context.Background()
-	// TODO(kenji-kondo): check connectivity to redis before returning
+	// TODO(kenji-kondo) These params should be set by user with, for instance, environment variables.
+	r.redisConnectionRetryIntervalSecond = 5
+	r.redisConnectionRetryNum = 6
+	// Check connectivity to redis before returning
+	_, err := r.client.Ping(r.context).Result()
+	if err != nil {
+		// If it failed to connect redis, further try to do for several times.
+		for i := 0; i < r.redisConnectionRetryNum - 1; i++ {
+			time.Sleep(time.Duration(r.redisConnectionRetryIntervalSecond) * time.Second)
+			_, errFinal := r.client.Ping(r.context).Result()
+			if errFinal == nil {
+				return r, nil
+			}
+		}
+		// Give up
+		return nil, err
+
+	}
 	return r, nil
 }
 
@@ -43,4 +63,9 @@ func (r *RedisClient) GetAllKeys() ([]string, error) {
 
 func (r *RedisClient) Del(key string) error {
 	return r.client.Del(r.context, key).Err()
+}
+
+func (r *RedisClient) Exists(key string) (int64, error) {
+	// "1" means the key exists in Redis, otherwise doesn't exist.
+	return r.client.Exists(r.context, key).Result()
 }

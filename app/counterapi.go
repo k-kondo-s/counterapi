@@ -8,28 +8,36 @@ import (
 )
 
 const (
-	envPrefix string = "COUNTERAPI"
+	envPrefix       string = "COUNTERAPI"
 	envRedisAddress string = "REDIS_ADDRESS"
-	envRedisDB string = "REDIS_DB"
-	envListenPort string = "PORT"
+	envRedisDB      string = "REDIS_DB"
+	envListenPort   string = "PORT"
 )
 
 func main() {
 
+	// Get parameters from environment variables
 	viper.SetEnvPrefix(envPrefix)
 	viper.AutomaticEnv()
 	redisAddress := viper.GetString(envRedisAddress)
-	redisDB :=viper.GetInt(envRedisDB)
+	redisDB := viper.GetInt(envRedisDB)
 	listenPort := viper.GetString(envListenPort)
-	hostname, err  := os.Hostname()
+	hostname, err := os.Hostname()
 	if err != nil {
-		logrus.Fatal("can't get hostname. exit")
+		logrus.Fatal("Can't get hostname. exit")
 	}
 
-	redisClient, _ := modules.NewRedisClient(redisAddress, redisDB)
+	// Inject dependencies
+	redisClient, err := modules.NewRedisClient(redisAddress, redisDB)
+	if err != nil {
+		logrus.Fatal(err)
+	}
 	counter := modules.NewCounterCalculator(redisClient)
 	router := modules.NewController(counter, listenPort, hostname)
 
-	router.Run()
+	// Run
+	if err := router.Run(); err != nil {
+		logrus.Fatal("Failed to start.")
+	}
 
 }
